@@ -1,7 +1,7 @@
 args = { ... }
 
-if #args ~= 2 then
-    print("Usage: stripmine <depth> <tunnels>")
+if #args ~= 3 or (args[3] ~= "l" and args[3] ~= "r") then
+    print("Usage: <depth> <tunnels> [(l)eft|(r)ight]")
     return
 end
 
@@ -13,11 +13,13 @@ function refuel(threshold)
     local fuel = turtle.getFuelLevel()
     
     if (fuel <= threshold) then
+        print("Refueling...")
         for i = 1, 16 do
             turtle.select(i)
             if turtle.refuel() then
+                print("Current fuel: " .. turtle.getFuelLevel())
                 turtle.select(1)
-                return turtle.select(1)
+                return true
             end
             turtle.select(1)
         end
@@ -41,26 +43,23 @@ function tryBack(n)
 end
 
 function dump()
-    turtle.turnLeft()
-    turtle.turnLeft()
-    tryForward(current_depth - 2)
+    tryBack(current_depth - 1)
 
     turtle.select(16)
-    turtle.place()
+    assert(turtle.placeDown(), "Could not place chest!")
+    print("Dumping inventory...")
     for i = 2, 15 do
         turtle.select(i)
-        turtle.drop()
+        turtle.dropDown()
     end
     turtle.select(1)
 
-    turtle.turnLeft()
-    turtle.turnLeft()
-    tryForward(current_depth - 2)
+    tryForward(current_depth - 1)
 end
 
 function digOne()
     while not turtle.forward() do
-        refuel(depth * 2)
+        assert(refuel(depth * 2), "Failed to refuel!")
         turtle.dig()
     end
     current_depth = current_depth + 1
@@ -73,26 +72,69 @@ function digOne()
     end
 end
 
-function digStrip()
-    for i = 1, depth do
-        digOne()
-    end
-    tryBack(depth)
-
-    turtle.turnRight()
-
+function digConnector()
     for i = 1, 3 do
         while not turtle.forward() do
-            refuel(depth * 2)
+            assert(refuel(depth * 2), "Failed to refuel!")
             turtle.dig()
         end
 
         turtle.digUp()
+        turtle.digDown()
+    end
+end
+
+function digStripLeft()
+    for i = 1, depth do
+        digOne()
     end
 
     turtle.turnLeft()
+    digConnector()
+    tryBack(3)
+    turtle.turnRight()
+
+    tryBack(depth)
+
+    turtle.turnLeft()
+    digConnector()
+    turtle.turnRight()
 end
 
-for i = 1, n do
-    digStrip()
+function digStripRight()
+    for i = 1, depth do
+        digOne()
+    end
+
+    turtle.turnRight()
+    digConnector()
+    tryBack(3)
+    turtle.turnLeft()
+
+    tryBack(depth)
+
+    turtle.turnRight()
+    digConnector()
+    turtle.turnLeft()
 end
+
+function stripmine()
+    dir = args[3]
+
+    turtle.digUp()
+    turtle.digDown()
+
+    if dir == "l" then
+        for i = 1, n do
+            digStripLeft()
+        end
+    elseif dir == "r" then
+        for i = 1, n do
+            digStripRight()
+        end
+    end
+
+    print("Mined " .. n " tunnels to depth " .. depth .. "." )
+end
+
+stripmine()
